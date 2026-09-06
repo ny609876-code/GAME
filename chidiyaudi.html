@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Chidiya Udi</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+
+:root {
+  --color-primary: #2771E3;
+  --color-on-primary: #FFFFFF;
+  --color-secondary: #509FF4;
+  --color-on-secondary: #000000;
+  --color-accent: #E26705;
+  --color-on-accent: #000000;
+  --color-bg: #E7EFF4;
+  --color-fg: #0F172A;
+  --color-card: #F9F8F8;
+  --color-card-fg: #0F172A;
+  --color-muted: #FFFFFF;
+  --color-muted-fg: #5B6A7F;
+  --color-border: #E4ECFC;
+  --color-ring: #2563EB;
+  --color-destructive: #DC2626;
+  --color-on-destructive: #FFFFFF;
+  --font-heading: 'Inter', serif;
+  --font-body: 'Inter', sans-serif;
+}
+
+::selection {
+  background-color: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #0B1426;
+  font-family: 'Inter', sans-serif;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#gameCanvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#startScreen, #gameOverScreen {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(11, 20, 38, 0.88);
+  color: #E7EFF4;
+  z-index: 10;
+}
+
+#gameOverScreen {
+  display: none;
+}
+
+#startScreen h1, #gameOverScreen h1 {
+  font-size: clamp(2.5rem, 8vw, 4.5rem);
+  font-weight: 800;
+  color: #4CC9F0;
+  text-shadow: 0 0 24px rgba(76, 201, 240, 0.45);
+  margin-bottom: 0.6rem;
+  letter-spacing: -0.03em;
+}
+
+#startScreen p, #gameOverScreen p {
+  font-size: clamp(1rem, 3vw, 1.5rem);
+  color: #90E0EF;
+  margin-bottom: 2rem;
+}
+
+#restartBtn {
+  padding: 14px 36px;
+  font-size: 1.2rem;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #2771E3, #509FF4);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(39, 113, 227, 0.4);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+#restartBtn:hover, #restartBtn:active {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(39, 113, 227, 0.6);
+}
+
+#scoreDisplay {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+  z-index: 5;
+  pointer-events: none;
+}
+
+@media (max-width: 375px) {
+  #startScreen h1, #gameOverScreen h1 { font-size: 2.2rem; }
+  #startScreen p, #gameOverScreen p { font-size: 0.95rem; }
+  #scoreDisplay { font-size: 1.7rem; top: 12px; }
+  #restartBtn { padding: 12px 28px; font-size: 1rem; }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  #startScreen h1, #gameOverScreen h1 { font-size: 3.6rem; }
+  #startScreen p, #gameOverScreen p { font-size: 1.3rem; }
+  #scoreDisplay { font-size: 2.6rem; }
+}
+
+@media (min-width: 1024px) and (max-width: 1439px) {
+  #startScreen h1, #gameOverScreen h1 { font-size: 4rem; }
+  #startScreen p, #gameOverScreen p { font-size: 1.4rem; }
+  #scoreDisplay { font-size: 2.8rem; }
+}
+
+@media (min-width: 1440px) {
+  #startScreen h1, #gameOverScreen h1 { font-size: 4.5rem; }
+  #startScreen p, #gameOverScreen p { font-size: 1.6rem; }
+  #scoreDisplay { font-size: 3.2rem; }
+}
+</style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+<div id="scoreDisplay">0</div>
+
+<div id="startScreen">
+  <h1>Chidiya Udi</h1>
+  <p>Tap or Click anywhere to fly</p>
+</div>
+
+<div id="gameOverScreen">
+  <h1>chal ja abb</h1>
+  <p>Score: <span id="finalScore">0</span></p>
+  <button id="restartBtn">Play Again</button>
+</div>
+
+<script>
+(function() {
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  const startScreen = document.getElementById('startScreen');
+  const gameOverScreen = document.getElementById('gameOverScreen');
+  const scoreDisplay = document.getElementById('scoreDisplay');
+  const finalScore = document.getElementById('finalScore');
+  const restartBtn = document.getElementById('restartBtn');
+
+  let W, H;
+  function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  const GRAVITY = 0.45;
+  const JUMP = -7.8;
+  const SPEED = 2.6;
+  const PILLAR_WIDTH = 62;
+  const GAP_HEIGHT = 148;
+  const PILLAR_SPACING = 280;
+
+  let bird = {
+    x: W * 0.22,
+    y: H / 2,
+    w: 46,
+    h: 36,
+    vy: 0,
+    rot: 0
+  };
+
+  let pillars = [];
+  function initPillars() {
+    pillars = [];
+    const baseX = W * 0.65;
+    // Gap centers: 1st high, 2nd lower than 1st, 3rd middle, 4th lower than 3rd, 5th higher than 3rd
+    const gaps = [
+      H * 0.20,
+      H * 0.32,
+      H * 0.50,
+      H * 0.64,
+      H * 0.36
+    ];
+    for (let i = 0; i < 5; i++) {
+      pillars.push({
+        x: baseX + i * PILLAR_SPACING,
+        gapY: gaps[i],
+        passed: false
+      });
+    }
+  }
+
+  let score = 0;
+  let state = 'start';
+  let frameId;
+
+  function resetBird() {
+    bird.x = W * 0.22;
+    bird.y = H / 2;
+    bird.vy = 0;
+    bird.rot = 0;
+  }
+
+  function resetGame() {
+    resetBird();
+    initPillars();
+    score = 0;
+    scoreDisplay.textContent = '0';
+    state = 'start';
+    startScreen.style.display = 'flex';
+    gameOverScreen.style.display = 'none';
+  }
+
+  function startGame() {
+    if (state !== 'playing') {
+      state = 'playing';
+      startScreen.style.display = 'none';
+      gameOverScreen.style.display = 'none';
+      bird.vy = JUMP;
+    }
+  }
+
+  function flap() {
+    if (state === 'playing') {
+      bird.vy = JUMP;
+    } else if (state === 'start') {
+      startGame();
+    }
+  }
+
+  function gameOver() {
+    state = 'gameover';
+    finalScore.textContent = score;
+    gameOverScreen.style.display = 'flex';
+  }
+
+  // Stars
+  const stars = [];
+  for (let i = 0; i < 70; i++) {
+    stars.push({
+      x: Math.random() * W,
+      y: Math.random() * H * 0.7,
+      r: Math.random() * 2 + 0.5,
+      alpha: Math.random() * 0.8 + 0.2
+    });
+  }
+
+  function drawBackground() {
+    const grad = ctx.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, '#0B1426');
+    grad.addColorStop(0.45, '#102244');
+    grad.addColorStop(1, '#1B3A5C');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+
+    // Stars
+    ctx.fillStyle = '#fff';
+    stars.forEach(s => {
+      ctx.globalAlpha = s.alpha * 0.5;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+
+    // Distant hills
+    ctx.fillStyle = '#0E1F3A';
+    ctx.beginPath();
+    ctx.moveTo(0, H);
+    for (let x = 0; x <= W; x += 50) {
+      ctx.lineTo(x, H - 55 - Math.sin(x * 0.008) * 28);
+    }
+    ctx.lineTo(W, H);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = '#142D52';
+    ctx.beginPath();
+    ctx.moveTo(0, H);
+    for (let x = 0; x <= W; x += 40) {
+      ctx.lineTo(x, H - 35 - Math.sin(x * 0.012 + 1.5) * 18);
+    }
+    ctx.lineTo(W, H);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function drawBird() {
+    ctx.save();
+    ctx.translate(bird.x + bird.w/2, bird.y + bird.h/2);
+    bird.rot = Math.min(Math.max(bird.vy * 0.045, -0.55), 0.55);
+    ctx.rotate(bird.rot);
+
+    // Tail feathers
+    ctx.fillStyle = '#4A2E15';
+    ctx.beginPath();
+    ctx.moveTo(-bird.w/2, -2);
+    ctx.lineTo(-bird.w/2 - 16, -10);
+    ctx.lineTo(-bird.w/2 - 14, 0);
+    ctx.lineTo(-bird.w/2 - 16, 10);
+    ctx.lineTo(-bird.w/2, 2);
+    ctx.closePath();
+    ctx.fill();
+
+    // Body
+    ctx.fillStyle = '#8B5A2B';
+    ctx.beginPath();
+    ctx.ellipse(0, 2, bird.w/2, bird.h/2.3, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // Wing
+    ctx.fillStyle = '#6F4E37';
+    ctx.beginPath();
+    ctx.ellipse(-7, 5, bird.w/2.6, bird.h/3.2, 0.35, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = '#5D3F25';
+    ctx.beginPath();
+    ctx.ellipse(-7, 5, bird.w/3.6, bird.h/4.5, 0.35, 0, Math.PI*2);
+    ctx.fill();
+
+    // Head
+    ctx.fillStyle = '#A07040';
+    ctx.beginPath();
+    ctx.arc(bird.w/3.6, -bird.h/3.4, bird.h/2.7, 0, Math.PI*2);
+    ctx.fill();
+
+    // White head patch (eagle look)
+    ctx.fillStyle = '#EDE4D3';
+    ctx.beginPath();
+    ctx.arc(bird.w/3.6 + 3, -bird.h/3.4 - 2, bird.h/4.8, 0, Math.PI*2);
+    ctx.fill();
+
+    // Beak
+    ctx.fillStyle = '#F4C430';
+    ctx.beginPath();
+    ctx.moveTo(bird.w/2.4, -bird.h/3.4);
+    ctx.lineTo(bird.w/2.4 + 15, -bird.h/3.4 + 3);
+    ctx.lineTo(bird.w/2.4, -bird.h/3.4 + 8);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#D4A017';
+    ctx.beginPath();
+    ctx.moveTo(bird.w/2.4, -bird.h/3.4 + 4);
+    ctx.lineTo(bird.w/2.4 + 10, -bird.h/3.4 + 5);
+    ctx.lineTo(bird.w/2.4, -bird.h/3.4 + 8);
+    ctx.closePath();
+    ctx.fill();
+
+    // Eye
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(bird.w/3.6 + 5, -bird.h/3.4 - 1, 5, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath();
+    ctx.arc(bird.w/3.6 + 6, -bird.h/3.4 - 1, 3, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(bird.w/3.6 + 7, -bird.h/3.4 - 2, 1.3, 0, Math.PI*2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  function drawWoodPillar(px, gapY) {
+    const topH = gapY - GAP_HEIGHT/2;
+    const bottomY = gapY + GAP_HEIGHT/2;
+    const woodBase = '#9C6B3C';
+    const woodDark = '#7A5230';
+
+    // Top pillar
+    ctx.fillStyle = woodBase;
+    ctx.fillRect(px, 0, PILLAR_WIDTH, topH);
+    ctx.strokeStyle = woodDark;
+    ctx.lineWidth = 2;
+    for (let gx = px + 8; gx < px + PILLAR_WIDTH; gx += 12) {
+      ctx.beginPath();
+      ctx.moveTo(gx, 0);
+      ctx.lineTo(gx, topH);
+      ctx.stroke();
+    }
+    // Top cap
+    ctx.fillStyle = woodDark;
+    ctx.fillRect(px - 5, topH - 10, PILLAR_WIDTH + 10, 10);
+    ctx.fillStyle = '#B07D4B';
+    ctx.fillRect(px - 5, topH - 10, PILLAR_WIDTH + 10, 3);
+
+    // Bottom pillar
+    ctx.fillStyle = woodBase;
+    ctx.fillRect(px, bottomY, PILLAR_WIDTH, H - bottomY);
+    for (let gx = px + 8; gx < px + PILLAR_WIDTH; gx += 12) {
+      ctx.beginPath();
+      ctx.moveTo(gx, bottomY);
+      ctx.lineTo(gx, H);
+      ctx.stroke();
+    }
+    // Bottom cap
+    ctx.fillStyle = woodDark;
+    ctx.fillRect(px - 5, bottomY, PILLAR_WIDTH + 10, 10);
+    ctx.fillStyle = '#B07D4B';
+    ctx.fillRect(px - 5, bottomY, PILLAR_WIDTH + 10, 3);
+  }
+
+  function checkCollision(p) {
+    if (bird.x + bird.w > p.x && bird.x < p.x + PILLAR_WIDTH) {
+      const topH = p.gapY - GAP_HEIGHT/2;
+      const bottomY = p.gapY + GAP_HEIGHT/2;
+      if (bird.y < topH || bird.y + bird.h > bottomY) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function update() {
+    if (state !== 'playing') return;
+
+    bird.vy += GRAVITY;
+    bird.y += bird.vy;
+
+    if (bird.y < 0 || bird.y + bird.h > H) {
+      gameOver();
+      return;
+    }
+
+    pillars.forEach(p => {
+      p.x -= SPEED;
+
+      if (checkCollision(p)) {
+        gameOver();
+        return;
+      }
+
+      if (!p.passed && p.x + PILLAR_WIDTH < bird.x) {
+        p.passed = true;
+        score++;
+        scoreDisplay.textContent = score;
+      }
+    });
+
+    // Endless pillars after the first 5
+    const lastPillar = pillars[pillars.length - 1];
+    if (lastPillar.x < W - PILLAR_SPACING) {
+      const minGap = GAP_HEIGHT/2 + 50;
+      const maxGap = H - GAP_HEIGHT/2 - 50;
+      const newGapY = minGap + Math.random() * (maxGap - minGap);
+      pillars.push({
+        x: lastPillar.x + PILLAR_SPACING,
+        gapY: newGapY,
+        passed: false
+      });
+    }
+
+    if (pillars[0].x + PILLAR_WIDTH < -50) {
+      pillars.shift();
+    }
+  }
+
+  function draw() {
+    drawBackground();
+
+    pillars.forEach(p => {
+      if (p.x + PILLAR_WIDTH > -10 && p.x < W + 10) {
+        drawWoodPillar(p.x, p.gapY);
+      }
+    });
+
+    drawBird();
+
+    ctx.fillStyle = '#0A1A33';
+    ctx.fillRect(0, H - 4, W, 4);
+  }
+
+  function loop() {
+    update();
+    draw();
+    frameId = requestAnimationFrame(loop);
+  }
+
+  function onInput(e) {
+    if (e.target === restartBtn) return;
+    e.preventDefault();
+    flap();
+  }
+
+  window.addEventListener('mousedown', onInput);
+  window.addEventListener('touchstart', onInput, { passive: false });
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' || e.code === 'ArrowUp') {
+      e.preventDefault();
+      flap();
+    }
+  });
+
+  restartBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    resetGame();
+  });
+
+  resetGame();
+  loop();
+})();
+</script>
+</body>
+</html>
